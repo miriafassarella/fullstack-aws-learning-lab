@@ -1,35 +1,52 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { AttributeValue, DynamoDBClient, ScanCommand } from "@aws-sdk/client-dynamodb";
+import { ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
 
 export interface DynamoDBTableOptions {
-  name: string;
-  region?: string;
+  name: string,
+  region?: string
+}
+
+export interface DynamoDBItem{
+  PK: string;
+  SK: string;
+  [others: string]: unknown;
 }
 
 export class DynamoDBTable {
-  private readonly client: DynamoDBDocumentClient;
+  private readonly client: DynamoDBClient;
   private readonly name: string;
 
-  constructor(options: DynamoDBTableOptions) {
+  public constructor(options: DynamoDBTableOptions){
     this.name = options.name;
 
-    const dynamoClient = new DynamoDBClient({
-      region: options.region ?? 'ca-central-1',
-    });
-
-    this.client = DynamoDBDocumentClient.from(dynamoClient);
+    this.client = new DynamoDBClient({
+      region: options.region ?? 'ca-central-1'
+    })
   }
 
-  async scan(): Promise<Record<string, unknown>[]> {
-    const response = await this.client.send(
-      new ScanCommand({
-        TableName: this.name,
-      }),
-    );
+  public async scan(): Promise<Array<DynamoDBItem> | null> {
+    const items: Record<string, AttributeValue>[] = [];
 
-    return response.Items ?? [];
+    let output: ScanCommandOutput | undefined;
+
+    do{
+      output = await this.client.send(
+        new ScanCommand({
+          TableName: this.name,
+          ExclusiveStartKey: output?.LastEvaluatedKey
+        })
+      );
+
+      if(output.Items === undefined){
+        return null;
+      }
+      for(const item of output.Items){
+        items.push(item);
+      }
+      
+    }while(output.LastEvaluatedKey !== undefined);
+
+    return items.map((item)=> unmarshall(item)) as Array<DynamoDBItem>;
   }
-}
+ }
