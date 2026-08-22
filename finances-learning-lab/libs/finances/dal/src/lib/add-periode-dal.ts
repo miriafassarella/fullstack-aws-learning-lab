@@ -1,5 +1,5 @@
 import { DynamoDBTable } from '@org/data';
-import { Periode } from '@org/model';
+import { Entitytype, Periode } from '@org/model';
 
 export class AddPeriodeDal {
   public constructor(
@@ -10,6 +10,8 @@ export class AddPeriodeDal {
     await this.dynamoTable.putItem({
       PK: `PERIODE#${periode.id}`,
       SK: `PERIODE#${periode.id}`,
+
+      Entitytype: Entitytype.Periode,
 
       id: periode.id,
       libelle: periode.libelle,
